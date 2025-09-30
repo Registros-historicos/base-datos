@@ -1,0 +1,102 @@
+name: 🗄️ DB Task
+description: "Plantilla para asignación de tareas relacionadas con la base de datos"
+title: "[DB]: <Título breve de la tarea>"
+labels: ["Database", "needs-triage"]
+assignees: [] #
+
+body:
+  - type: markdown
+    attributes:
+      value: |
+        ## 🗄️ Tarea de Base de Datos
+        Esta plantilla es para asignar tareas relacionadas con cambios, optimizaciones o revisiones en la base de datos.
+        > Usa formato **DISEÑO / IMPLEMENTACIÓN / EVIDENCIA** para que no falte nada.
+
+  - id: resumen
+    type: input
+    attributes:
+      label: Resumen breve
+      description: Título corto y claro
+      placeholder: "Ej.: Crear subir script"
+    validations:
+      required: true
+
+  - id: cambio
+    type: textarea
+    attributes:
+      label: 📐 Diseño / Cambio requerido
+      description: Explica qué se debe realizar en la base de datos
+      placeholder: |
+        - Crear tabla `audit_logs`
+        - Agregar campo `last_login` en `users`
+        - Ajustar índice en `orders.date_created`
+    validations:
+      required: true
+
+  - id: impacto
+    type: textarea
+    attributes:
+      label: 🔗 Impacto en el sistema
+      description: Qué módulos, microservicios o reportes dependen de este cambio
+      placeholder: |
+        - API de usuarios
+        - Reporte mensual de órdenes
+        - Dashboard de administración
+
+  - id: criterios
+    type: textarea
+    attributes:
+      label: ✅ Criterios de aceptación
+      description: Condiciones mínimas para dar por cerrada la tarea
+      placeholder: |
+        - Script ejecuta sin errores en ambiente de staging.
+        - Migraciones aplicadas correctamente en todos los entornos.
+        - Consultas críticas mantienen o mejoran el rendimiento (<200ms).
+    validations:
+      required: true
+
+  - id: evidencia
+    type: textarea
+    attributes:
+      label: 📎 Evidencia
+      description: Qué debe adjuntar el dev/DBA al cerrar el issue
+      placeholder: |
+        - Script SQL
+        - Capturas de ejecución en staging
+        - Link a documentación actualizada
+
+  - id: prioridad
+    type: dropdown
+    attributes:
+      label: Prioridad
+      options:
+        - P0 (Crítica)
+        - P1 (Alta)
+        - P2 (Media)
+        - P3 (Baja)
+      default: 2
+    validations:
+      required: true
+
+  - id: status
+    type: dropdown
+    attributes:
+      label: Estado inicial
+      options:
+        - Todo
+        - Doing
+        - Blocked
+        - Done
+      default: 0
+    validations:
+      required: true
+
+  - id: checklist
+    type: checkboxes
+    attributes:
+      label: Checklist operativo
+      options:
+        - label: Subir migraciones/queries en carpeta `/db/migrations`
+        - label: Ejecutar en staging antes de cerrar
+        - label: Adjuntar evidencia en este issue
+        - label: Mover este issue a Done al cerrar
