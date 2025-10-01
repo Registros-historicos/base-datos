@@ -1,0 +1,57 @@
+name: PostgreSQL CI
+
+on:
+  push:
+    branches: [ master ]
+  pull_request:
+    branches: [ master ]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: echo "Aquí irían tus tests"
+
+  deploy_db:
+    runs-on: ubuntu-latest
+    needs: test
+    if: github.event_name == 'push' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master')
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Copy DB repo to VM (SCP)
+        uses: appleboy/scp-action@v0.1.7
+        with:
+          host: ${{ secrets.VM_HOST }}
+          username: ${{ secrets.VM_USER }}
+          port: ${{ secrets.VM_SSH_PORT || 22 }}
+          key: ${{ secrets.VM_SSH_KEY }}
+          source: "**"
+          target: "~/db"
+
+
+      - name: Deploy DB on VM (Docker Compose)
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.VM_HOST }}
+          username: ${{ secrets.VM_USER }}
+          port: ${{ secrets.VM_SSH_PORT || 22 }}
+          key: ${{ secrets.VM_SSH_KEY }}
+          script: |
+            set -euo pipefail
+            cd ~/db
+            if command -v docker compose >/dev/null 2>&1; then
+              COMPOSE="docker compose"
+            else
+              COMPOSE="docker-compose"
+            fi
+            echo "POSTGRES_USER=${{ secrets.DEV_DB_OWNER }}" > .env
+            echo "POSTGRES_PASSWORD=${{ secrets.DEV_DB_PASSWORD }}" >> .env
+            echo "POSTGRES_DB=${{ secrets.DEV_DB_NAME }}" >> .env
+            docker compose down -v
+            
+            $COMPOSE up -d
+            docker image prune -f
+            $COMPOSE ps
+            echo "DB deployed successfully"
