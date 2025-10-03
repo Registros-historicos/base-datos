@@ -425,7 +425,7 @@ BEGIN
     v_limit  := GREATEST(0, LEAST(coalesce(p_limit, 50), 1000));
     v_offset := GREATEST(0, coalesce(p_offset, 0));
 
-    -- Construir patrón seguro para ILIKE (contiene).  Nota: '%%' si p_search es NULL/''.
+    -- Construir patrón seguro para ILIKE (contiene). Nota: '%%' si p_search es NULL/''.
     v_pattern := '%' || coalesce(p_search, '') || '%';
 
     -- Solo el ORDER BY es dinámico y usa %I (identificador) con nombre validado
