@@ -19,3 +19,5 @@ services:
 
 volumes:
   pg_data_ci:
+    name: pg_data_ci
+    external: true
