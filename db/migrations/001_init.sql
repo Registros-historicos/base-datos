@@ -271,33 +271,41 @@ COMMENT ON FUNCTION f_busca_resgistros_por_institucion(BIGINT)
 -- Filtra por tipo_registro_param (asunción común de "tipo")
 -- =====================================================
 CREATE OR REPLACE FUNCTION f_busca_registros_por_tipo(
-    p_tipo_registro_param BIGINT
+    p_tipo_registro_param BIGINT,   -- 44 = IMPI, 45 = INDAUTOR
+    p_limit INT,
+    p_offset INT,
+    p_sort_column VARCHAR DEFAULT 'fec_solicitud',
+    p_sort_order VARCHAR DEFAULT 'DESC'
 )
-    RETURNS TABLE (
-                      id_registro BIGINT,
-                      no_expediente BIGINT,
-                      titulo VARCHAR,
-                      tipo_ingreso_param BIGINT,
-                      id_usuario BIGINT,
-                      rama_param BIGINT,
-                      fec_expedicion TIMESTAMP,
-                      observaciones VARCHAR,
-                      archivo VARCHAR,
-                      estatus_param BIGINT,
-                      medio_ingreso_param BIGINT,
-                      tipo_registro_param BIGINT,
-                      fec_solicitud TIMESTAMP,
-                      descripcion VARCHAR,
-                      tipo_sector_param BIGINT
-                  ) AS $$
+RETURNS TABLE (
+    id_registro BIGINT,
+    no_expediente BIGINT,
+    titulo VARCHAR,
+    tipo_ingreso_param BIGINT,
+    id_usuario BIGINT,
+    rama_param BIGINT,
+    fec_expedicion TIMESTAMP,
+    observaciones VARCHAR,
+    archivo VARCHAR,
+    estatus_param BIGINT,
+    medio_ingreso_param BIGINT,
+    tipo_registro_param BIGINT,
+    fec_solicitud TIMESTAMP,
+    descripcion VARCHAR,
+    tipo_sector_param BIGINT
+) AS $$
 BEGIN
-    RETURN QUERY
-        SELECT r.id_registro, r.no_expediente, r.titulo, r.tipo_ingreso_param,
-               r.id_usuario, r.rama_param, r.fec_expedicion, r.observaciones,
-               r.archivo, r.estatus_param, r.medio_ingreso_param, r.tipo_registro_param,
-               r.fec_solicitud, r.descripcion, r.tipo_sector_param
-        FROM registro r
-        WHERE r.tipo_registro_param = p_tipo_registro_param;
+    RETURN QUERY EXECUTE format(
+        'SELECT id_registro, no_expediente, titulo, tipo_ingreso_param,
+                id_usuario, rama_param, fec_expedicion, observaciones,
+                archivo, estatus_param, medio_ingreso_param, tipo_registro_param,
+                fec_solicitud, descripcion, tipo_sector_param
+         FROM registro
+         WHERE tipo_registro_param = %s
+         ORDER BY %I %s
+         LIMIT %s OFFSET %s',
+        p_tipo_registro_param, p_sort_column, p_sort_order, p_limit, p_offset
+    );
 END;
 $$ LANGUAGE plpgsql;
 
@@ -312,19 +320,98 @@ COMMENT ON FUNCTION f_busca_registros_por_tipo(BIGINT)
 CREATE OR REPLACE FUNCTION f_cuenta_registros_por_tipo(
     p_tipo_registro_param BIGINT
 )
-    RETURNS BIGINT AS $$
+RETURNS BIGINT AS $$
+DECLARE v_total BIGINT;
+BEGIN
+    SELECT COUNT(*) INTO v_total
+    FROM registro
+    WHERE tipo_registro_param = p_tipo_registro_param;
+
+    RETURN v_total;
+END;
+$$ LANGUAGE plpgsql;
+COMMENT ON FUNCTION f_cuenta_registros_por_tipo(BIGINT)
+    IS 'Cuenta registros por un valor de tipo_registro_param.';
+
+
+
+CREATE OR REPLACE FUNCTION f_busca_registros_por_texto(
+    p_tipo_registro_param BIGINT,   -- 44 = IMPI, 45 = INDAUTOR
+    p_search VARCHAR,               -- texto de búsqueda
+    p_limit INT,
+    p_offset INT,
+    p_sort_column VARCHAR DEFAULT 'fec_solicitud',
+    p_sort_order VARCHAR DEFAULT 'DESC'
+)
+RETURNS TABLE (
+    id_registro BIGINT,
+    no_expediente BIGINT,
+    titulo VARCHAR,
+    tipo_ingreso_param BIGINT,
+    id_usuario BIGINT,
+    rama_param BIGINT,
+    fec_expedicion TIMESTAMP,
+    observaciones VARCHAR,
+    archivo VARCHAR,
+    estatus_param BIGINT,
+    medio_ingreso_param BIGINT,
+    tipo_registro_param BIGINT,
+    fec_solicitud TIMESTAMP,
+    descripcion VARCHAR,
+    tipo_sector_param BIGINT
+) AS $$
+BEGIN
+    RETURN QUERY EXECUTE format(
+        'SELECT id_registro, no_expediente, titulo, tipo_ingreso_param,
+                id_usuario, rama_param, fec_expedicion, observaciones,
+                archivo, estatus_param, medio_ingreso_param, tipo_registro_param,
+                fec_solicitud, descripcion, tipo_sector_param
+         FROM registro
+         WHERE tipo_registro_param = %s
+           AND (
+               titulo ILIKE %L
+               OR descripcion ILIKE %L
+               OR CAST(no_expediente AS TEXT) ILIKE %L
+           )
+         ORDER BY %I %s
+         LIMIT %s OFFSET %s',
+        p_tipo_registro_param,
+        '%' || p_search || '%',
+        '%' || p_search || '%',
+        '%' || p_search || '%',
+        p_sort_column, p_sort_order,
+        p_limit, p_offset
+    );
+END;
+$$ LANGUAGE plpgsql;
+
+COMMENT ON FUNCTION f_busca_registros_por_texto(BIGINT, VARCHAR, INT, INT, VARCHAR, VARCHAR)
+    IS 'Busca registros filtrando por tipo_registro_param y texto en titulo, descripcion o no_expediente.';
+
+
+CREATE OR REPLACE FUNCTION f_contar_registros_por_texto(
+    p_tipo_registro_param BIGINT,
+    p_search VARCHAR
+)
+RETURNS BIGINT AS $$
 DECLARE v_total BIGINT;
 BEGIN
     SELECT COUNT(*) INTO v_total
     FROM registro r
-    WHERE r.tipo_registro_param = p_tipo_registro_param;
+    WHERE r.tipo_registro_param = p_tipo_registro_param
+      AND (
+          r.titulo ILIKE '%'||p_search||'%' 
+          OR r.descripcion ILIKE '%'||p_search||'%'
+          OR CAST(r.no_expediente AS TEXT) ILIKE '%'||p_search||'%'
+      );
 
     RETURN v_total;
 END;
 $$ LANGUAGE plpgsql;
 
-COMMENT ON FUNCTION f_cuenta_registros_por_tipo(BIGINT)
-    IS 'Cuenta registros por un valor de tipo_registro_param.';
+
+COMMENT ON FUNCTION f_contar_registros_por_texto(BIGINT, VARCHAR)
+    IS 'Cuenta registros filtrando por tipo_registro_param y texto en titulo, descripcion o no_expediente.';
 
 
 -- =====================================================
