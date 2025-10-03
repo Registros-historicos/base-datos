@@ -51,15 +51,14 @@ jobs:
             echo "POSTGRES_DB=${{ secrets.DEV_DB_NAME }}" >> .env
 
 
-            #BACKUPPPP
+            $COMPOSE down
+
             mkdir -p ~/db/backups
             docker run --rm \
               -v pg_data_ci:/var/lib/postgresql/data \
               -v ~/db/backups:/backup \
               alpine sh -c "tar czf /backup/pgdata_$(date +%Y%m%d_%H%M%S).tar.gz -C / var/lib/postgresql/data"
 
-
-            $COMPOSE down
             $COMPOSE up -d --remove-orphans
             
             docker image prune -f

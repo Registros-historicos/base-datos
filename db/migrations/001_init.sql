@@ -275,7 +275,7 @@ CREATE OR REPLACE FUNCTION f_busca_registros_por_tipo(
     p_limit INT,
     p_offset INT,
     p_sort_column VARCHAR DEFAULT 'fec_solicitud',
-    p_sort_order VARCHAR DEFAULT 'DESC'
+    p_sort_order  VARCHAR DEFAULT 'DESC'
 )
 RETURNS TABLE (
     id_registro BIGINT,
@@ -293,25 +293,56 @@ RETURNS TABLE (
     fec_solicitud TIMESTAMP,
     descripcion VARCHAR,
     tipo_sector_param BIGINT
-) AS $$
+)
+LANGUAGE plpgsql
+AS $$
+DECLARE
+    v_allowed_cols CONSTANT text[] := ARRAY[
+        'id_registro','no_expediente','titulo','tipo_ingreso_param',
+        'id_usuario','rama_param','fec_expedicion','estatus_param',
+        'medio_ingreso_param','tipo_registro_param','fec_solicitud',
+        'tipo_sector_param'
+    ];
+
+    v_sort_col text;
+    v_sort_dir text;
+    v_limit    int;
+    v_offset   int;
+    v_sql      text;
 BEGIN
-    RETURN QUERY EXECUTE format(
+    v_sort_dir := CASE lower(coalesce(p_sort_order,'desc'))
+                    WHEN 'asc'  THEN 'ASC'
+                    WHEN 'desc' THEN 'DESC'
+                    ELSE 'DESC'
+                  END;
+
+    v_sort_col := CASE
+        WHEN p_sort_column = ANY (v_allowed_cols) THEN p_sort_column
+        ELSE 'fec_solicitud'
+    END;
+
+    v_limit  := GREATEST(0, LEAST(coalesce(p_limit, 50), 1000));
+    v_offset := GREATEST(0, coalesce(p_offset, 0));
+
+    v_sql := format(
         'SELECT id_registro, no_expediente, titulo, tipo_ingreso_param,
                 id_usuario, rama_param, fec_expedicion, observaciones,
                 archivo, estatus_param, medio_ingreso_param, tipo_registro_param,
                 fec_solicitud, descripcion, tipo_sector_param
          FROM registro
-         WHERE tipo_registro_param = %s
+         WHERE tipo_registro_param = $1
          ORDER BY %I %s
-         LIMIT %s OFFSET %s',
-        p_tipo_registro_param, p_sort_column, p_sort_order, p_limit, p_offset
+         LIMIT $2 OFFSET $3',
+        v_sort_col, v_sort_dir
     );
+
+    RETURN QUERY EXECUTE v_sql
+        USING p_tipo_registro_param, v_limit, v_offset;
 END;
-$$ LANGUAGE plpgsql;
+$$;
 
 COMMENT ON FUNCTION f_busca_registros_por_tipo(BIGINT, INT, INT, VARCHAR, VARCHAR)
-    IS 'Busca registros filtrando por tipo_registro_param.';
-
+IS 'Busca registros por tipo_registro_param con orden y paginación validados.';
 
 -- =====================================================
 -- f_cuenta_registros_por_tipo
@@ -334,14 +365,13 @@ COMMENT ON FUNCTION f_cuenta_registros_por_tipo(BIGINT)
     IS 'Cuenta registros por un valor de tipo_registro_param.';
 
 
-
 CREATE OR REPLACE FUNCTION f_busca_registros_por_texto(
     p_tipo_registro_param BIGINT,   -- 44 = IMPI, 45 = INDAUTOR
     p_search VARCHAR,               -- texto de búsqueda
     p_limit INT,
     p_offset INT,
     p_sort_column VARCHAR DEFAULT 'fec_solicitud',
-    p_sort_order VARCHAR DEFAULT 'DESC'
+    p_sort_order  VARCHAR DEFAULT 'DESC'
 )
 RETURNS TABLE (
     id_registro BIGINT,
@@ -359,34 +389,70 @@ RETURNS TABLE (
     fec_solicitud TIMESTAMP,
     descripcion VARCHAR,
     tipo_sector_param BIGINT
-) AS $$
+)
+LANGUAGE plpgsql
+AS $$
+DECLARE
+    -- Whitelist de columnas permitidas para ORDER BY
+    v_allowed_cols CONSTANT text[] := ARRAY[
+        'id_registro','no_expediente','titulo','tipo_ingreso_param',
+        'id_usuario','rama_param','fec_expedicion','estatus_param',
+        'medio_ingreso_param','tipo_registro_param','fec_solicitud',
+        'tipo_sector_param'
+    ];
+
+    v_sort_col text;
+    v_sort_dir text;
+    v_limit    int;
+    v_offset   int;
+    v_sql      text;
+    v_pattern  text;
 BEGIN
-    RETURN QUERY EXECUTE format(
+    -- Normalizar dirección de orden
+    v_sort_dir := CASE lower(coalesce(p_sort_order,'desc'))
+                    WHEN 'asc'  THEN 'ASC'
+                    WHEN 'desc' THEN 'DESC'
+                    ELSE 'DESC'
+                  END;
+
+    -- Validar columna a ordenar
+    v_sort_col := CASE
+        WHEN p_sort_column = ANY (v_allowed_cols) THEN p_sort_column
+        ELSE 'fec_solicitud'
+    END;
+
+    -- Guardrails de paginación
+    v_limit  := GREATEST(0, LEAST(coalesce(p_limit, 50), 1000));
+    v_offset := GREATEST(0, coalesce(p_offset, 0));
+
+    -- Construir patrón seguro para ILIKE (contiene).  Nota: '%%' si p_search es NULL/''.
+    v_pattern := '%' || coalesce(p_search, '') || '%';
+
+    -- Solo el ORDER BY es dinámico y usa %I (identificador) con nombre validado
+    v_sql := format(
         'SELECT id_registro, no_expediente, titulo, tipo_ingreso_param,
                 id_usuario, rama_param, fec_expedicion, observaciones,
                 archivo, estatus_param, medio_ingreso_param, tipo_registro_param,
                 fec_solicitud, descripcion, tipo_sector_param
          FROM registro
-         WHERE tipo_registro_param = %s
+         WHERE tipo_registro_param = $1
            AND (
-               titulo ILIKE %L
-               OR descripcion ILIKE %L
-               OR CAST(no_expediente AS TEXT) ILIKE %L
+               titulo ILIKE $2
+               OR descripcion ILIKE $2
+               OR CAST(no_expediente AS TEXT) ILIKE $2
            )
          ORDER BY %I %s
-         LIMIT %s OFFSET %s',
-        p_tipo_registro_param,
-        '%' || p_search || '%',
-        '%' || p_search || '%',
-        '%' || p_search || '%',
-        p_sort_column, p_sort_order,
-        p_limit, p_offset
+         LIMIT $3 OFFSET $4',
+        v_sort_col, v_sort_dir
     );
+
+    RETURN QUERY EXECUTE v_sql
+        USING p_tipo_registro_param, v_pattern, v_limit, v_offset;
 END;
-$$ LANGUAGE plpgsql;
+$$;
 
 COMMENT ON FUNCTION f_busca_registros_por_texto(BIGINT, VARCHAR, INT, INT, VARCHAR, VARCHAR)
-    IS 'Busca registros filtrando por tipo_registro_param y texto en titulo, descripcion o no_expediente.';
+IS 'Busca registros por tipo y texto (ILIKE) con ORDER BY validado y parámetros pasados con USING.';
 
 
 CREATE OR REPLACE FUNCTION f_contar_registros_por_texto(
