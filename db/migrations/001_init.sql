@@ -309,7 +309,7 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql;
 
-COMMENT ON FUNCTION f_busca_registros_por_tipo(BIGINT)
+COMMENT ON FUNCTION f_busca_registros_por_tipo(BIGINT, INT, INT, VARCHAR, VARCHAR)
     IS 'Busca registros filtrando por tipo_registro_param.';
 
 
