@@ -1,0 +1,2 @@
+ALTER TABLE institucion
+ALTER COLUMN id_cepat DROP NOT NULL;
