@@ -1,6 +1,6 @@
 -- FUNCTION: public.f_actualiza_id_cepat_institucion(bigint, bigint)
 
--- DROP FUNCTION IF EXISTS public.f_actualiza_id_cepat_institucion(bigint, bigint);
+DROP FUNCTION IF EXISTS public.f_actualiza_id_cepat_institucion(bigint, bigint);
 
 CREATE OR REPLACE FUNCTION public.f_actualiza_id_cepat_institucion(
 	p_id_institucion bigint,

@@ -1,12 +1,11 @@
 -- FUNCTION: public.f_busca_todos_cepat()
-
 DROP FUNCTION IF EXISTS public.f_busca_todos_cepat();
 
 CREATE OR REPLACE FUNCTION public.f_busca_todos_cepat()
     RETURNS TABLE(
         id_cepat bigint, 
         nombre character varying, 
-        id_usuario bigint 
+        id_usuario bigint -- <--- CORREGIDO (antes id_coordinador)
     ) 
     LANGUAGE 'plpgsql'
     COST 100
